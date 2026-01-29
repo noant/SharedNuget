@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Shared.DI.ProvidersConfig.Example/Shared.DI.ProvidersConfig.Example.csproj" />
+  <Project Path="Shared.DI.ProvidersConfig/Shared.DI.ProvidersConfig.csproj" />
+  <Project Path="Shared.Utils.NugetPublisher/Shared.Utils.NugetPublisher.csproj" />
+</Solution>

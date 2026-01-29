@@ -1,0 +1,29 @@
+using Microsoft.Extensions.Options;
+using Shared.DI.ProvidersConfig;
+using Shared.DI.ProvidersConfig.Example.Contracts;
+
+namespace Shared.DI.ProvidersConfig.Example.Providers;
+
+public class SmsProviderOptions
+{
+    public string ApiKey { get; set; } = string.Empty;
+    public string ApiUrl { get; set; } = string.Empty;
+}
+
+public class SmsProvider : IMessageProvider, IProvider<IMessageProvider, SmsProviderOptions>
+{
+    private readonly SmsProviderOptions _options;
+
+    public SmsProvider(IOptions<SmsProviderOptions> options)
+    {
+        _options = options.Value;
+    }
+
+    public Task SendAsync(string message)
+    {
+        Console.WriteLine($"[SmsProvider] Sending via API {_options.ApiUrl}");
+        Console.WriteLine($"[SmsProvider] API Key: {_options.ApiKey}");
+        Console.WriteLine($"[SmsProvider] Message: {message}");
+        return Task.CompletedTask;
+    }
+}
