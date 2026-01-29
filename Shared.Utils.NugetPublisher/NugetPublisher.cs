@@ -12,14 +12,14 @@ public class NugetPublisher
     private readonly string _projectName;
     private readonly string _apiKey;
     private readonly string _source;
-    private readonly string? _description;
+    private readonly string? _manualVersion;
 
-    public NugetPublisher(string projectName, string apiKey, string source, string? description = null)
+    public NugetPublisher(string projectName, string apiKey, string source, string? manualVersion = null)
     {
         _projectName = projectName ?? throw new ArgumentNullException(nameof(projectName));
         _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         _source = source ?? throw new ArgumentNullException(nameof(source));
-        _description = description;
+        _manualVersion = manualVersion;
     }
 
     public async Task PublishAsync()
@@ -29,17 +29,20 @@ public class NugetPublisher
         var projectPath = FindProjectPath();
         Console.WriteLine($"Found project at: {projectPath}");
 
-        var description = GetDescription(projectPath);
-        if (!string.IsNullOrWhiteSpace(description))
+        string newVersion;
+        if (!string.IsNullOrWhiteSpace(_manualVersion))
         {
-            Console.WriteLine($"Using description: {description}");
+            newVersion = _manualVersion;
+            Console.WriteLine($"Using manual version: {newVersion}");
+        }
+        else
+        {
+            var latestVersion = await GetLatestVersionAsync();
+            newVersion = IncrementVersion(latestVersion);
+            Console.WriteLine($"Latest version: {latestVersion?.ToString() ?? "none"}, New version: {newVersion}");
         }
 
-        var latestVersion = await GetLatestVersionAsync();
-        var newVersion = IncrementVersion(latestVersion);
-        Console.WriteLine($"Latest version: {latestVersion?.ToString() ?? "none"}, New version: {newVersion}");
-
-        BuildPackage(projectPath, newVersion, description);
+        BuildPackage(projectPath, newVersion, null);
         
         var packagePath = FindPackagePath(projectPath, newVersion);
         Console.WriteLine($"Package created at: {packagePath}");
@@ -70,30 +73,11 @@ public class NugetPublisher
         throw new FileNotFoundException($"Project file {projectFile} not found in expected locations");
     }
 
-    private string? GetDescription(string projectPath)
-    {
-        if (!string.IsNullOrWhiteSpace(_description))
-        {
-            return _description;
-        }
-
-        var projectDir = Path.GetDirectoryName(projectPath);
-        if (projectDir == null)
-            return null;
-
-        var descriptionFile = Path.Combine(projectDir, "nuget_description.txt");
-        
-        if (File.Exists(descriptionFile))
-        {
-            var content = File.ReadAllText(descriptionFile).Trim();
-            return string.IsNullOrWhiteSpace(content) ? null : content;
-        }
-
-        return null;
-    }
 
     private async Task<NuGetVersion?> GetLatestVersionAsync()
     {
+        Console.WriteLine($"Querying latest version from {_source}...");
+        
         var cache = new SourceCacheContext();
         var repository = Repository.Factory.GetCoreV3(_source);
         var resource = await repository.GetResourceAsync<FindPackageByIdResource>();
@@ -104,7 +88,18 @@ public class NugetPublisher
             NullLogger.Instance,
             CancellationToken.None);
 
-        return versions
+        var versionsList = versions?.ToList() ?? new List<NuGetVersion>();
+        
+        if (versionsList.Count > 0)
+        {
+            Console.WriteLine($"Found {versionsList.Count} existing versions:");
+            foreach (var v in versionsList.OrderByDescending(v => v).Take(5))
+            {
+                Console.WriteLine($"  - {v}");
+            }
+        }
+
+        return versionsList
             .Where(v => !v.IsPrerelease)
             .OrderByDescending(v => v)
             .FirstOrDefault();
@@ -127,11 +122,6 @@ public class NugetPublisher
         Console.WriteLine($"Building package with version {version}...");
 
         var arguments = $"pack \"{projectPath}\" -c Release /p:Version={version} --output .";
-        
-        if (!string.IsNullOrWhiteSpace(description))
-        {
-            arguments += $" /p:Description=\"{description}\"";
-        }
 
         var startInfo = new ProcessStartInfo
         {
@@ -152,23 +142,38 @@ public class NugetPublisher
         process.WaitForExit();
 
         Console.WriteLine(output);
+        
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            Console.WriteLine("Error output:");
+            Console.WriteLine(error);
+        }
 
         if (process.ExitCode != 0)
-            throw new InvalidOperationException($"dotnet pack failed with exit code {process.ExitCode}: {error}");
+            throw new InvalidOperationException($"dotnet pack failed with exit code {process.ExitCode}. See output above for details.");
     }
 
     private string FindPackagePath(string projectPath, string version)
     {
-        var projectDir = Path.GetDirectoryName(projectPath) 
-            ?? throw new InvalidOperationException("Could not determine project directory");
-        
         var packageFileName = $"{_projectName}.{version}.nupkg";
-        var packagePath = Path.Combine(projectDir, packageFileName);
+        
+        // Package is created in current directory due to --output .
+        var currentDir = Directory.GetCurrentDirectory();
+        var packagePath = Path.Combine(currentDir, packageFileName);
 
-        if (!File.Exists(packagePath))
-            throw new FileNotFoundException($"Package file not found: {packagePath}");
+        if (File.Exists(packagePath))
+            return packagePath;
 
-        return packagePath;
+        // Fallback: check project directory
+        var projectDir = Path.GetDirectoryName(projectPath);
+        if (projectDir != null)
+        {
+            packagePath = Path.Combine(projectDir, packageFileName);
+            if (File.Exists(packagePath))
+                return packagePath;
+        }
+
+        throw new FileNotFoundException($"Package file not found. Searched in: {currentDir} and {projectDir}");
     }
 
     private void PushPackage(string packagePath)
@@ -194,8 +199,20 @@ public class NugetPublisher
         process.WaitForExit();
 
         Console.WriteLine(output);
+        
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            Console.WriteLine("Error output:");
+            Console.WriteLine(error);
+        }
 
         if (process.ExitCode != 0)
-            throw new InvalidOperationException($"dotnet nuget push failed with exit code {process.ExitCode}: {error}");
+        {
+            if (error.Contains("409") || error.Contains("already exists"))
+            {
+                throw new InvalidOperationException($"Package version already exists on NuGet. The version was likely published recently and may take a few minutes to appear in search results.");
+            }
+            throw new InvalidOperationException($"dotnet nuget push failed with exit code {process.ExitCode}. See output above for details.");
+        }
     }
 }

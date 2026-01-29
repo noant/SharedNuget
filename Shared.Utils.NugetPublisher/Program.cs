@@ -20,21 +20,21 @@ var sourceOption = new Option<string>(
     description: "NuGet source URL",
     getDefaultValue: () => "https://api.nuget.org/v3/index.json");
 
-var descriptionOption = new Option<string?>(
-    aliases: new[] { "--description", "-d" },
-    description: "Package description",
+var versionOption = new Option<string?>(
+    aliases: new[] { "--package-version", "-v" },
+    description: "Package version (if not specified, auto-increments from latest)",
     getDefaultValue: () => null);
 
 var rootCommand = new RootCommand("NuGet Publisher - builds and publishes NuGet packages with auto-incremented versions");
 rootCommand.AddOption(projectNameOption);
 rootCommand.AddOption(apiKeyOption);
 rootCommand.AddOption(sourceOption);
-rootCommand.AddOption(descriptionOption);
+rootCommand.AddOption(versionOption);
 
-rootCommand.SetHandler(async (projectName, apiKey, source, description) =>
+rootCommand.SetHandler(async (projectName, apiKey, source, version) =>
 {
-    var publisher = new NugetPublisher(projectName, apiKey, source, description);
+    var publisher = new NugetPublisher(projectName, apiKey, source, version);
     await publisher.PublishAsync();
-}, projectNameOption, apiKeyOption, sourceOption, descriptionOption);
+}, projectNameOption, apiKeyOption, sourceOption, versionOption);
 
 return await rootCommand.InvokeAsync(args);
