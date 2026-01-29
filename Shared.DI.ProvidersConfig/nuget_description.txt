@@ -1,0 +1,1 @@
+Configuration-driven provider selection with DI integration and dynamic reload support. Automatically discovers and registers providers, supports runtime configuration changes without restart. See https://github.com/noant/SharedNuget/tree/main/Shared.DI.ProvidersConfig for details.

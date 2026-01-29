@@ -12,12 +12,14 @@ public class NugetPublisher
     private readonly string _projectName;
     private readonly string _apiKey;
     private readonly string _source;
+    private readonly string? _description;
 
-    public NugetPublisher(string projectName, string apiKey, string source)
+    public NugetPublisher(string projectName, string apiKey, string source, string? description = null)
     {
         _projectName = projectName ?? throw new ArgumentNullException(nameof(projectName));
         _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
         _source = source ?? throw new ArgumentNullException(nameof(source));
+        _description = description;
     }
 
     public async Task PublishAsync()
@@ -27,11 +29,17 @@ public class NugetPublisher
         var projectPath = FindProjectPath();
         Console.WriteLine($"Found project at: {projectPath}");
 
+        var description = GetDescription(projectPath);
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            Console.WriteLine($"Using description: {description}");
+        }
+
         var latestVersion = await GetLatestVersionAsync();
         var newVersion = IncrementVersion(latestVersion);
         Console.WriteLine($"Latest version: {latestVersion?.ToString() ?? "none"}, New version: {newVersion}");
 
-        BuildPackage(projectPath, newVersion);
+        BuildPackage(projectPath, newVersion, description);
         
         var packagePath = FindPackagePath(projectPath, newVersion);
         Console.WriteLine($"Package created at: {packagePath}");
@@ -60,6 +68,28 @@ public class NugetPublisher
         }
 
         throw new FileNotFoundException($"Project file {projectFile} not found in expected locations");
+    }
+
+    private string? GetDescription(string projectPath)
+    {
+        if (!string.IsNullOrWhiteSpace(_description))
+        {
+            return _description;
+        }
+
+        var projectDir = Path.GetDirectoryName(projectPath);
+        if (projectDir == null)
+            return null;
+
+        var descriptionFile = Path.Combine(projectDir, "nuget_description.txt");
+        
+        if (File.Exists(descriptionFile))
+        {
+            var content = File.ReadAllText(descriptionFile).Trim();
+            return string.IsNullOrWhiteSpace(content) ? null : content;
+        }
+
+        return null;
     }
 
     private async Task<NuGetVersion?> GetLatestVersionAsync()
@@ -92,14 +122,21 @@ public class NugetPublisher
         return $"{major}.{minor}.{patch}";
     }
 
-    private static void BuildPackage(string projectPath, string version)
+    private void BuildPackage(string projectPath, string version, string? description)
     {
         Console.WriteLine($"Building package with version {version}...");
+
+        var arguments = $"pack \"{projectPath}\" -c Release /p:Version={version} --output .";
+        
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            arguments += $" /p:Description=\"{description}\"";
+        }
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"pack \"{projectPath}\" -c Release /p:Version={version} --output .",
+            Arguments = arguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
