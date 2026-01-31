@@ -4,13 +4,16 @@ Configuration-driven provider selection with DI integration and dynamic reload s
 
 ## Features
 
-- **Automatic Provider Discovery**: All provider implementations are automatically discovered and registered via reflection
+- **Automatic Provider Discovery**: All provider implementations are automatically discovered via reflection
 - **Dynamic Configuration Reload**: Change active providers in `appsettings.json` without restarting the application
-- **Configuration-Based Selection**: Select providers through JSON configuration
+- **Configuration-Based Selection**: Select providers through JSON configuration with enum-keyed hierarchy
 - **Options Pattern Integration**: Each provider gets its own strongly-typed configuration via `IOptions<T>`
-- **Zero Manual Registration**: No need to manually register provider implementations in DI
+- **Manual Provider Construction**: Providers are constructed manually without DI registration pollution
+- **Assembly Type Caching**: Configurable caching of assembly scanning results for optimal performance
+- **Multiple Instances Support**: Same provider class can be instantiated multiple times with different enum keys and configurations
 - **Multiple Registration Methods**: Register via concrete type or interface
 - **Runtime Provider Selection**: Switch between providers at runtime or inject single provider directly
+- **Recommended Singleton Lifetime**: Optimal caching performance with Singleton registration (default)
 
 ## Installation
 
@@ -62,16 +65,16 @@ public class EmailProviderOptions
 
 public class EmailProvider : IMessageProvider, IProvider<IMessageProvider, EmailProviderOptions>
 {
-    private readonly EmailProviderOptions _options;
+    private readonly IOptionsSnapshot<EmailProviderOptions> _options;
 
-    public EmailProvider(IOptions<EmailProviderOptions> options)
+    public EmailProvider(IOptionsSnapshot<EmailProviderOptions> options)
     {
-        _options = options.Value;
+        _options = options;
     }
 
     public Task SendAsync(string message)
     {
-        Console.WriteLine($"Sending via SMTP {_options.SmtpHost}:{_options.SmtpPort}");
+        Console.WriteLine($"Sending via SMTP {_options.Value.SmtpHost}:{_options.Value.SmtpPort}");
         return Task.CompletedTask;
     }
 }
@@ -83,24 +86,38 @@ public class EmailProvider : IMessageProvider, IProvider<IMessageProvider, Email
 {
   "providersConfiguration": {
     "MessageSender": {
+      "cacheLifetime": "00:00:15",
+      "reloadAssemblyInfo": false,
+      "defaultProvider": "Email",
       "activeProviders": {
         "Email": "EmailProvider",
         "Sms": "SmsProvider"
       },
       "configurations": {
-        "EmailProvider": {
-          "SmtpHost": "smtp.example.com",
-          "SmtpPort": 587
+        "Email": {
+          "EmailProvider": {
+            "SmtpHost": "smtp.example.com",
+            "SmtpPort": 587
+          }
         },
-        "SmsProvider": {
-          "ApiKey": "your-api-key",
-          "ApiUrl": "https://api.sms-provider.com"
+        "Sms": {
+          "SmsProvider": {
+            "ApiKey": "your-api-key",
+            "ApiUrl": "https://api.sms-provider.com"
+          }
         }
       }
     }
   }
 }
 ```
+
+**Configuration Fields:**
+- `cacheLifetime` (optional, default: `00:00:15`): TimeSpan for assembly type cache expiration
+- `reloadAssemblyInfo` (optional, default: `false`): If `false`, assembly type cache never expires after first load
+- `defaultProvider` (required): Default enum key for provider selection
+- `activeProviders` (required): Dictionary mapping enum keys to provider class names
+- `configurations` (required): Nested dictionary: `{EnumKey}.{ProviderClassName}.{ProviderOptions}`
 
 ### 5. Register in DI
 
@@ -109,9 +126,12 @@ var configuration = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
     .Build();
 
-services.AddProvidersConfiguration<MessageSender>(configuration, ServiceLifetime.Scoped);
+// Recommended: Register as Singleton for optimal caching performance
+services.AddProvidersConfiguration<MessageSender>(configuration);
 services.AddScoped<MessageSender>();
 ```
+
+**Note:** `AddProvidersConfiguration` defaults to `ServiceLifetime.Singleton` for optimal caching performance. You can override this if needed, but Singleton is recommended.
 
 ### 6. Use It
 
@@ -122,53 +142,120 @@ await messageSender.SendEmailAsync("Hello!");
 
 ## Dynamic Configuration Reload
 
-Change active providers while the application is running:
+Change active providers and their configurations while the application is running:
 
 1. Edit `appsettings.json`:
    ```json
    "activeProviders": {
      "Email": "EmailProvider",
-     "Sms": "SecondarySmsProvider"  // Changed from SmsProvider
+     "Sms": "SecondarySmsProvider"
+   },
+   "configurations": {
+     "Email": {
+       "EmailProvider": {
+         "SmtpHost": "smtp.newhost.com",
+         "SmtpPort": 465
+       }
+     },
+     "Sms": {
+       "SecondarySmsProvider": {
+         "ApiKey": "new-api-key",
+         "ApiUrl": "https://api.new-sms.com"
+       }
+     }
    }
    ```
 
 2. Save the file
 
-3. Next provider resolution automatically uses the new provider!
+3. Next provider resolution automatically uses the new provider and updated configuration!
 
 **Requirements:**
 - `reloadOnChange: true` in ConfigurationBuilder
-- Use Scoped or Transient lifetime for services
+- Providers are constructed fresh on each resolution, so configuration changes are immediately reflected
+
+## Multiple Instances of Same Provider
+
+The enum-keyed configuration structure supports multiple instances of the same provider class with different configurations:
+
+```json
+{
+  "providersConfiguration": {
+    "LlmService": {
+      "cacheLifetime": "00:00:15",
+      "reloadAssemblyInfo": false,
+      "defaultProvider": "Chat",
+      "activeProviders": {
+        "Chat": "OpenAiLlmProvider",
+        "Reasoner": "OpenAiLlmProvider"
+      },
+      "configurations": {
+        "Chat": {
+          "OpenAiLlmProvider": {
+            "ApiKey": "apikey",
+            "ModelName": "deepseek-chat",
+            "Uri": "https://api.deepseek.com/v1"
+          }
+        },
+        "Reasoner": {
+          "OpenAiLlmProvider": {
+            "ApiKey": "apikey",
+            "ModelName": "deepseek-reasoner",
+            "Uri": "https://api.deepseek.com/v1"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+In this example, `OpenAiLlmProvider` is instantiated twice with different configurations for `Chat` and `Reasoner` enum keys.
 
 ## Registration Methods
 
-### Option 1: Via Concrete Type
+### Option 1: Via Concrete Type (Recommended: Singleton)
+
+```csharp
+services.AddProvidersConfiguration<MessageSender>(configuration);
+services.AddScoped<MessageSender>();
+```
+
+### Option 2: Via Interface (Recommended: Singleton)
+
+```csharp
+services.AddProvidersConfiguration<IMessageSender, MessageSender>(configuration);
+services.AddScoped<IMessageSender, MessageSender>();
+```
+
+### Custom Lifetime (Not Recommended)
 
 ```csharp
 services.AddProvidersConfiguration<MessageSender>(configuration, ServiceLifetime.Scoped);
 services.AddScoped<MessageSender>();
 ```
 
-### Option 2: Via Interface
-
-```csharp
-services.AddProvidersConfiguration<IMessageSender, MessageSender>(configuration, ServiceLifetime.Scoped);
-services.AddScoped<IMessageSender, MessageSender>();
-```
+**Note:** Singleton lifetime (default) is recommended for optimal caching performance. Assembly type scanning and provider dictionary caching work best with Singleton registration.
 
 ## How It Works
 
 1. **Registration Phase:**
-   - All provider types implementing `IMessageProvider` are discovered via reflection
-   - All providers are registered in DI (not just active ones)
-   - Options are configured for each provider
-   - `SimpleProviders` is registered with access to all providers
+   - `SimpleProvidersOptions` is configured from `appsettings.json`
+   - `IProviders<TEnum, TProvider>` and `IProviderSwitcher` are registered in DI
+   - **No provider types are registered in DI** - they are constructed manually
 
 2. **Resolution Phase:**
-   - When you resolve `IProviders<TEnum, TProvider>`, it gets all registered providers
-   - On each property/method access, it reads current configuration via `IOptionsMonitor<T>`
-   - Filters providers based on current `activeProviders` configuration
-   - Returns filtered provider(s)
+   - When you call `Of(enumKey)`, it:
+     1. Scans all loaded assemblies for types implementing `TRealProvider` (cached with configurable lifetime)
+     2. Reads current configuration via `IOptionsMonitor<T>`
+     3. Constructs provider instance manually by resolving constructor parameters from DI
+     4. For `IOptions<T>` parameters, binds configuration from `configurations.{EnumKey}.{ProviderClassName}`
+     5. Returns constructed provider instance
+
+3. **Caching:**
+   - **Assembly type scanning** is cached based on `cacheLifetime` and `reloadAssemblyInfo` settings
+   - **Provider dictionary** (enum-to-type mapping) is cached based on `cacheLifetime`
+   - **Reflection metadata** (constructors, parameters) is cached permanently for performance
 
 ## Examples
 

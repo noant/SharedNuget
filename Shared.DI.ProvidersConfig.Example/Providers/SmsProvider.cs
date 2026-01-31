@@ -12,17 +12,17 @@ public class SmsProviderOptions
 
 public class SmsProvider : IMessageProvider, IProvider<IMessageProvider, SmsProviderOptions>
 {
-    private readonly SmsProviderOptions _options;
+    private readonly IOptionsSnapshot<SmsProviderOptions> _options;
 
-    public SmsProvider(IOptions<SmsProviderOptions> options)
+    public SmsProvider(IOptionsSnapshot<SmsProviderOptions> options)
     {
-        _options = options.Value;
+        _options = options;
     }
 
     public Task SendAsync(string message)
     {
-        Console.WriteLine($"[SmsProvider] Sending via API {_options.ApiUrl}");
-        Console.WriteLine($"[SmsProvider] API Key: {_options.ApiKey}");
+        Console.WriteLine($"[SmsProvider] Sending via API {_options.Value.ApiUrl}");
+        Console.WriteLine($"[SmsProvider] API Key: {_options.Value.ApiKey}");
         Console.WriteLine($"[SmsProvider] Message: {message}");
         return Task.CompletedTask;
     }

@@ -12,16 +12,16 @@ public class EmailProviderOptions
 
 public class EmailProvider : IMessageProvider, IProvider<IMessageProvider, EmailProviderOptions>
 {
-    private readonly EmailProviderOptions _options;
+    private readonly IOptionsSnapshot<EmailProviderOptions> _options;
 
-    public EmailProvider(IOptions<EmailProviderOptions> options)
+    public EmailProvider(IOptionsSnapshot<EmailProviderOptions> options)
     {
-        _options = options.Value;
+        _options = options;
     }
 
     public Task SendAsync(string message)
     {
-        Console.WriteLine($"[EmailProvider] Sending via SMTP {_options.SmtpHost}:{_options.SmtpPort}");
+        Console.WriteLine($"[EmailProvider] Sending via SMTP {_options.Value.SmtpHost}:{_options.Value.SmtpPort}");
         Console.WriteLine($"[EmailProvider] Message: {message}");
         return Task.CompletedTask;
     }

@@ -10,7 +10,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddProvidersConfiguration<THasProviders>(
         this IServiceCollection services,
         IConfiguration configuration,
-        ServiceLifetime lifetime = ServiceLifetime.Scoped,
+        ServiceLifetime lifetime = ServiceLifetime.Singleton,
         string section = "providersConfiguration")
         where THasProviders : class
     {
@@ -20,7 +20,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddProvidersConfiguration<TInterface, TImplementation>(
         this IServiceCollection services,
         IConfiguration configuration,
-        ServiceLifetime lifetime = ServiceLifetime.Scoped,
+        ServiceLifetime lifetime = ServiceLifetime.Singleton,
         string section = "providersConfiguration")
         where TInterface : class
         where TImplementation : class, TInterface
@@ -80,53 +80,6 @@ public static class ServiceCollectionExtensions
             throw new InvalidOperationException(
                 $"Configuration section '{configSectionName}' not found");
 
-        var activeProvidersSection = configSection.GetSection("activeProviders");
-        var configurationsSection = configSection.GetSection("configurations");
-
-        var allLoadedTypes = AppDomain.CurrentDomain
-            .GetAssemblies()
-            .Where(a => !a.IsDynamic)
-            .SelectMany(a => a.GetExportedTypes())
-            .ToList();
-
-        var allProviderTypes = allLoadedTypes
-            .Where(t => 
-                t.IsClass && 
-                !t.IsAbstract && 
-                realProviderType.IsAssignableFrom(t))
-            .ToList();
-
-        foreach (var providerType in allProviderTypes)
-        {
-            services.Add(new ServiceDescriptor(providerType, providerType, lifetime));
-            services.Add(new ServiceDescriptor(realProviderType, providerType, lifetime));
-
-            var providerInterfaces = providerType
-                .GetInterfaces()
-                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IProvider<,>))
-                .ToList();
-
-            foreach (var providerInterface in providerInterfaces)
-            {
-                var optionsType = providerInterface.GetGenericArguments()[1];
-                var providerConfigSection = configurationsSection.GetSection(providerType.Name);
-
-                if (providerConfigSection.Exists())
-                {
-                    var configureMethod = typeof(OptionsConfigurationServiceCollectionExtensions)
-                        .GetMethods()
-                        .First(m => 
-                            m.Name == nameof(OptionsConfigurationServiceCollectionExtensions.Configure) &&
-                            m.GetGenericArguments().Length == 1 &&
-                            m.GetParameters().Length == 2 &&
-                            m.GetParameters()[1].ParameterType == typeof(IConfiguration));
-
-                    var genericConfigureMethod = configureMethod.MakeGenericMethod(optionsType);
-                    genericConfigureMethod.Invoke(null, new object[] { services, providerConfigSection });
-                }
-            }
-        }
-
         var simpleProvidersOptionsType = typeof(SimpleProvidersOptions<,>).MakeGenericType(enumProviderType, realProviderType);
 
         var optionsConfigureMethod = typeof(OptionsConfigurationServiceCollectionExtensions)
@@ -146,7 +99,6 @@ public static class ServiceCollectionExtensions
         var providerSwitcherInterfaceType = typeof(IProviderSwitcher<,,>).MakeGenericType(hasProvidersType, enumProviderType, realProviderType);
         var providerSwitcherImplementationType = typeof(SimpleProviderSwitcher<,,>).MakeGenericType(hasProvidersType, enumProviderType, realProviderType);
         
-        // Registered as Singleton to persist state across lifetimes
         services.Add(new ServiceDescriptor(
             providerSwitcherInterfaceType,
             providerSwitcherImplementationType,
@@ -156,9 +108,8 @@ public static class ServiceCollectionExtensions
             iProvidersType,
             sp =>
             {
-                var allProviders = sp.GetServices(realProviderType);
                 var providerSwitcher = sp.GetRequiredService(providerSwitcherInterfaceType);
-                return Activator.CreateInstance(simpleProvidersType, sp, allProviders, providerSwitcher)
+                return Activator.CreateInstance(simpleProvidersType, sp, providerSwitcher, configuration, configSectionName)
                     ?? throw new InvalidOperationException($"Failed to create SimpleProviders");
             },
             lifetime));

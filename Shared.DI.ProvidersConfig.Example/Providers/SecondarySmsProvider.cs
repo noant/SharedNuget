@@ -13,18 +13,18 @@ public class SecondarySmsProviderOptions
 
 public class SecondarySmsProvider : IMessageProvider, IProvider<IMessageProvider, SecondarySmsProviderOptions>
 {
-    private readonly SecondarySmsProviderOptions _options;
+    private readonly IOptionsSnapshot<SecondarySmsProviderOptions> _options;
 
-    public SecondarySmsProvider(IOptions<SecondarySmsProviderOptions> options)
+    public SecondarySmsProvider(IOptionsSnapshot<SecondarySmsProviderOptions> options)
     {
-        _options = options.Value;
+        _options = options;
     }
 
     public Task SendAsync(string message)
     {
-        Console.WriteLine($"[SecondarySmsProvider] Provider: {_options.ProviderName}");
-        Console.WriteLine($"[SecondarySmsProvider] Sending via API {_options.ApiUrl}");
-        Console.WriteLine($"[SecondarySmsProvider] API Key: {_options.ApiKey}");
+        Console.WriteLine($"[SecondarySmsProvider] Provider: {_options.Value.ProviderName}");
+        Console.WriteLine($"[SecondarySmsProvider] Sending via API {_options.Value.ApiUrl}");
+        Console.WriteLine($"[SecondarySmsProvider] API Key: {_options.Value.ApiKey}");
         Console.WriteLine($"[SecondarySmsProvider] Message: {message}");
         return Task.CompletedTask;
     }
