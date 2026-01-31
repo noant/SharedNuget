@@ -22,14 +22,11 @@ internal class SimpleProviders<THasProviders, TEnumProviderType, TRealProvider> 
         _providerSwitcher = providerSwitcher ?? throw new ArgumentNullException(nameof(providerSwitcher));
     }
 
-    internal IReadOnlyDictionary<string, string> ProviderTypes
-    {
-        get
-        {
-            var optionsMonitor = _serviceProvider.GetRequiredService<IOptionsMonitor<SimpleProvidersOptions<TEnumProviderType, TRealProvider>>>();
-            return optionsMonitor.CurrentValue.ActiveProviders;
-        }
-    }
+    internal IReadOnlyDictionary<string, string> ProviderTypes => 
+        _serviceProvider
+            .GetRequiredService<IOptionsMonitor<SimpleProvidersOptions<TEnumProviderType, TRealProvider>>>()
+            .CurrentValue
+            .ActiveProviders;
 
     private IEnumerable<TRealProvider> GetFilteredProviders()
     {
@@ -44,23 +41,12 @@ internal class SimpleProviders<THasProviders, TEnumProviderType, TRealProvider> 
         });
     }
 
-    public IReadOnlyList<TRealProvider> Providers
-    {
-        get
-        {
-            return GetFilteredProviders()
-                .ToList()
-                .AsReadOnly();
-        }
-    }
+    public IReadOnlyList<TRealProvider> Providers => 
+        GetFilteredProviders()
+            .ToList()
+            .AsReadOnly();
 
-    public TRealProvider Provider
-    {
-        get
-        {
-            return Of(_providerSwitcher.Current);
-        }
-    }
+    public TRealProvider Provider => Of(_providerSwitcher.Current);
 
     public TRealProvider Of(TEnumProviderType providerType)
     {
