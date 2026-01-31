@@ -128,10 +128,9 @@ var configuration = new ConfigurationBuilder()
 
 // Recommended: Register as Singleton for optimal caching performance
 services.AddProvidersConfiguration<MessageSender>(configuration);
-services.AddScoped<MessageSender>();
 ```
 
-**Note:** `AddProvidersConfiguration` defaults to `ServiceLifetime.Singleton` for optimal caching performance. You can override this if needed, but Singleton is recommended.
+**Note:** `AddProvidersConfiguration` automatically registers the holder class (`MessageSender`) in DI with the specified lifetime (defaults to `ServiceLifetime.Singleton` for optimal caching performance).
 
 ### 6. Use It
 
@@ -218,30 +217,31 @@ In this example, `OpenAiLlmProvider` is instantiated twice with different config
 
 ```csharp
 services.AddProvidersConfiguration<MessageSender>(configuration);
-services.AddScoped<MessageSender>();
 ```
 
 ### Option 2: Via Interface (Recommended: Singleton)
 
 ```csharp
 services.AddProvidersConfiguration<IMessageSender, MessageSender>(configuration);
-services.AddScoped<IMessageSender, MessageSender>();
 ```
 
 ### Custom Lifetime (Not Recommended)
 
 ```csharp
 services.AddProvidersConfiguration<MessageSender>(configuration, ServiceLifetime.Scoped);
-services.AddScoped<MessageSender>();
 ```
 
-**Note:** Singleton lifetime (default) is recommended for optimal caching performance. Assembly type scanning and provider dictionary caching work best with Singleton registration.
+**Note:** 
+- `AddProvidersConfiguration` automatically registers the holder class in DI with the specified lifetime
+- Singleton lifetime (default) is recommended for optimal caching performance
+- Assembly type scanning and provider dictionary caching work best with Singleton registration
 
 ## How It Works
 
 1. **Registration Phase:**
    - `SimpleProvidersOptions` is configured from `appsettings.json`
    - `IProviders<TEnum, TProvider>` and `IProviderSwitcher` are registered in DI
+   - Holder class (e.g., `MessageSender`) is automatically registered in DI
    - **No provider types are registered in DI** - they are constructed manually
 
 2. **Resolution Phase:**

@@ -75,8 +75,8 @@ Library for configuration-driven provider selection with DI integration.
 ### Example 1: Multiple Providers
 ```csharp
 // Recommended: Singleton lifetime for optimal caching
+// Automatically registers MessageSender in DI
 services.AddProvidersConfiguration<MessageSender>(configuration);
-services.AddScoped<MessageSender>();
 
 // Runtime selection
 var providers = serviceProvider.GetRequiredService<IProviders<MessageType, IMessageProvider>>();
@@ -111,7 +111,7 @@ var reasonerProvider = providers.Of(LlmType.Reasoner); // OpenAiLlmProvider with
 - Provider implementations are NOT registered in DI - they are constructed manually
 - Providers are constructed fresh on each `Of(enumKey)` call
 - IOptions<TOptions> is created manually from configuration during provider construction
-- Only holder classes need manual DI registration
+- Holder classes are automatically registered in DI by `AddProvidersConfiguration`
 - Configuration reload requires `reloadOnChange: true` in ConfigurationBuilder
 - Assembly type scanning is cached based on `cacheLifetime` and `reloadAssemblyInfo` settings
 - Singleton lifetime (default) is recommended for `AddProvidersConfiguration` for optimal caching performance

@@ -16,7 +16,6 @@ services.AddSingleton<IConfiguration>(configuration);
 Console.WriteLine("=== Example 1: Registration via concrete type ===\n");
 
 services.AddProvidersConfiguration<MessageSender>(configuration, ServiceLifetime.Scoped);
-services.AddScoped<MessageSender>();
 
 var serviceProvider = services.BuildServiceProvider();
 
@@ -34,8 +33,7 @@ Console.WriteLine("\n=== Example 2: Registration via interface ===\n");
 var services2 = new ServiceCollection();
 services2.AddSingleton<IConfiguration>(configuration);
 
-services2.AddProvidersConfiguration<IMessageSender, MessageSender>(configuration, ServiceLifetime.Scoped);
-services2.AddScoped<IMessageSender, MessageSender>();
+services2.AddProvidersConfiguration<IMessageSender, MessageSender>(configuration);
 
 var serviceProvider2 = services2.BuildServiceProvider();
 

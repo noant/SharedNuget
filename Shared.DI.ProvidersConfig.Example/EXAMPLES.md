@@ -243,8 +243,8 @@ var services = new ServiceCollection();
 services.AddSingleton<IConfiguration>(configuration);
 
 // Recommended: Register as Singleton for optimal caching performance
+// Automatically registers MessageSender in DI
 services.AddProvidersConfiguration<MessageSender>(configuration);
-services.AddScoped<MessageSender>();
 
 var serviceProvider = services.BuildServiceProvider();
 
@@ -261,8 +261,8 @@ using (var scope = serviceProvider.CreateScope())
 #### Option 2: Registration via Interface (Recommended: Singleton)
 
 ```csharp
+// Automatically registers IMessageSender -> MessageSender in DI
 services.AddProvidersConfiguration<IMessageSender, MessageSender>(configuration);
-services.AddScoped<IMessageSender, MessageSender>();
 
 var serviceProvider = services.BuildServiceProvider();
 
@@ -275,7 +275,10 @@ using (var scope = serviceProvider.CreateScope())
 }
 ```
 
-**Note:** `AddProvidersConfiguration` defaults to `ServiceLifetime.Singleton` for optimal caching performance. Assembly type scanning and provider dictionary caching work best with Singleton registration.
+**Note:** 
+- `AddProvidersConfiguration` automatically registers the holder class in DI with the specified lifetime
+- Defaults to `ServiceLifetime.Singleton` for optimal caching performance
+- Assembly type scanning and provider dictionary caching work best with Singleton registration
 
 ## Dynamic Configuration Reload
 

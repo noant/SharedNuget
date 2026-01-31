@@ -55,6 +55,15 @@ public static class ServiceCollectionExtensions
             RegisterProviders(services, configuration, hasProvidersType, enumProviderType, realProviderType, lifetime, section);
         }
 
+        if (typeof(TInterface) == typeof(TImplementation))
+        {
+            services.Add(new ServiceDescriptor(typeof(TImplementation), typeof(TImplementation), lifetime));
+        }
+        else
+        {
+            services.Add(new ServiceDescriptor(typeof(TInterface), typeof(TImplementation), lifetime));
+        }
+
         return services;
     }
 
