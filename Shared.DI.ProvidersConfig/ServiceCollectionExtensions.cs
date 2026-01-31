@@ -140,15 +140,25 @@ public static class ServiceCollectionExtensions
         var genericOptionsConfigureMethod = optionsConfigureMethod.MakeGenericMethod(simpleProvidersOptionsType);
         genericOptionsConfigureMethod.Invoke(null, new object[] { services, configSection });
 
-        var simpleProvidersType = typeof(SimpleProviders<,>).MakeGenericType(enumProviderType, realProviderType);
+        var simpleProvidersType = typeof(SimpleProviders<,,>).MakeGenericType(hasProvidersType, enumProviderType, realProviderType);
         var iProvidersType = typeof(IProviders<,>).MakeGenericType(enumProviderType, realProviderType);
+        
+        var providerSwitcherInterfaceType = typeof(IProviderSwitcher<,,>).MakeGenericType(hasProvidersType, enumProviderType, realProviderType);
+        var providerSwitcherImplementationType = typeof(SimpleProviderSwitcher<,,>).MakeGenericType(hasProvidersType, enumProviderType, realProviderType);
+        
+        // Registered as Singleton to persist state across lifetimes
+        services.Add(new ServiceDescriptor(
+            providerSwitcherInterfaceType,
+            providerSwitcherImplementationType,
+            ServiceLifetime.Singleton));
 
         services.Add(new ServiceDescriptor(
             iProvidersType,
             sp =>
             {
                 var allProviders = sp.GetServices(realProviderType);
-                return Activator.CreateInstance(simpleProvidersType, sp, allProviders)
+                var providerSwitcher = sp.GetRequiredService(providerSwitcherInterfaceType);
+                return Activator.CreateInstance(simpleProvidersType, sp, allProviders, providerSwitcher)
                     ?? throw new InvalidOperationException($"Failed to create SimpleProviders");
             },
             lifetime));

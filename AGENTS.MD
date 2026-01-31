@@ -61,10 +61,12 @@ alwaysApply: true
 - Spec/HLA.md is responsible for describing the interaction of abstractions from the **.Abstractions.** projects; it describes high-level processes and abstractions of how the stack of written programs works. Primarily, this file describes EntryPoints and Processors.
 - Files named Spec/Projects/{Name}.md are responsible for describing projects named {Name} and may be optional in some cases.
 - The file named Spec/misc.md is responsible for additional project information.
-- Files and folders Spec/Features/{feature-index}-{name}/{spec-index}.md are responsible for describing functionality in the Feature perspective, but with mention of which project units need to be created, which can be used, and a description of how it will function. Meanwhile, the Spec/Features/{feature-index}-{name}/overview.md file is the feature overview file and should be referenced whenever you implement the feature.
+- Files and folders Spec/Tasks/{task-index}-{name}/{spec-index}.md are responsible for describing functionality in the Task perspective, but with mention of which project units need to be created, which can be used, and a description of how it will function. Meanwhile, the Spec/Tasks/{task-index}-{name}/overview.md file is the feature/research overview file and should be referenced whenever you implement the feature.
+- Tasks can be of two types: feature and research tasks.
+- Research task artifacts should be placed in the Research/{task-index}-{name}/ folder.
 - There should be no other files in the Spec folder outside of these defined structures.
 - When creating or updating code, you need to update the documentation in the Spec folder. Descriptions from the Spec folder can be interpreted as a task.
-- When creating a feature description use "before-after" or "as-is -> to-be" pattern for documentation.
-- When work on a feature is complete, mark the feature folder as _DONE_{feature}
-- When work on a part of a feature is complete, mark the part file as _DONE_{feature_part}
-- (IMPORTANT) When creating a feature description, be very brief, but don't omit clarifying details provided by the user. Wait for user review before starting implementation. Execute only after explicit user request. The documentation should contain only important information about the feature; there is no need to create an additional readme file. Always add description to use AGENTS.md for rules, e.g. "IMPORTANT: always use AGENTS.md for rules".
+- When creating a task description use "before-after" or "as-is -> to-be" pattern for documentation.
+- When work on a task is complete, mark the task folder as _DONE_{feature}
+- When work on a part of a task is complete, mark the part file as _DONE_{feature_part}
+- (IMPORTANT) When creating a task description, be very brief, but don't omit clarifying details provided by the user. Wait for user review before starting implementation. Execute only after explicit user request. The documentation should contain only important information about the task; there is no need to create an additional readme file. Always add description to use AGENTS.md for rules, e.g. "IMPORTANT: always use AGENTS.md for rules".

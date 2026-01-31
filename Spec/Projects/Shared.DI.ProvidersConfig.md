@@ -18,10 +18,13 @@ Library for configuration-driven provider selection with DI integration.
 - `IHasProviders<TEnumProviderType, TRealProvider>` - marker for holder classes
 - `IProvider<TRealProvider, TOptions>` - provider with options support
 - `IProviders<TEnumProviderType, TRealProvider>` - provider selector
+- `IProviderSwitcher<THasProviders, TEnumProviderType, TRealProvider>` - runtime provider switching
 
 ### Implementation
 - `ProviderHolder<TEnumProviderType, TProvider>` - internal storage
 - `SimpleProviders<TEnumProviderType, TRealProvider>` - provider selector implementation
+- `SimpleProviderSwitcher<THasProviders, TEnumProviderType, TRealProvider>` - thread-safe provider switching
+- `SimpleProvidersOptions<TEnumProviderType, TRealProvider>` - configuration options with defaultProvider support
 
 ### Extensions
 - `ServiceCollectionExtensions.AddProvidersConfiguration<THasProviders>()` - DI registration
@@ -31,6 +34,7 @@ Library for configuration-driven provider selection with DI integration.
 {
   "providersConfiguration": {
     "{THasProviders.Name}": {
+      "defaultProvider": "EnumValue",
       "activeProviders": {
         "EnumValue": "ProviderClassName"
       },
@@ -42,12 +46,20 @@ Library for configuration-driven provider selection with DI integration.
 }
 ```
 
+**Fields:**
+- `defaultProvider` (optional) - enum key for default provider used by `IProviders.Provider`
+- `activeProviders` (required) - dictionary mapping enum keys to provider class names
+- `configurations` (optional) - provider-specific configuration objects
+
 ## Key Features
 - Automatic provider discovery and registration via reflection
 - No manual DI registration needed for provider implementations
 - Automatic IOptions configuration for each provider from JSON
 - Support for runtime provider selection via IProviders<>
 - Support for direct single provider injection
+- Default provider configuration with runtime switching via IProviderSwitcher
+- Thread-safe provider switching with persistent state across DI lifetimes
+- Dynamic configuration reload support
 
 ## Usage Examples
 
@@ -60,8 +72,12 @@ services.AddScoped<MessageSender>();
 var providers = serviceProvider.GetRequiredService<IProviders<MessageType, IMessageProvider>>();
 var emailProvider = providers.Of(MessageType.Email);
 
-// Single provider
+// Default provider (from configuration or IProviderSwitcher)
 var defaultProvider = providers.Provider;
+
+// Runtime switching
+var switcher = serviceProvider.GetRequiredService<IProviderSwitcher<MessageSender, MessageType, IMessageProvider>>();
+switcher.Current = MessageType.Sms; // Changes default provider
 ```
 
 ### Example 2: Single Provider Direct Injection

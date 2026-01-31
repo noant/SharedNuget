@@ -4,6 +4,7 @@ internal class SimpleProvidersOptions<TEnumProviderType, TRealProvider>
     where TEnumProviderType : Enum
     where TRealProvider : class
 {
+    public string? DefaultProvider { get; set; }
     public Dictionary<string, string> ActiveProviders { get; set; } = new();
     public Dictionary<string, object> Configurations { get; set; } = new();
 }

@@ -3,19 +3,23 @@ using Microsoft.Extensions.Options;
 
 namespace Shared.DI.ProvidersConfig;
 
-internal class SimpleProviders<TEnumProviderType, TRealProvider> : IProviders<TEnumProviderType, TRealProvider>
+internal class SimpleProviders<THasProviders, TEnumProviderType, TRealProvider> : IProviders<TEnumProviderType, TRealProvider>
+    where THasProviders : IHasProviders<TEnumProviderType, TRealProvider>
     where TEnumProviderType : Enum
     where TRealProvider : class
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IEnumerable<TRealProvider> _allProviders;
+    private readonly IProviderSwitcher<THasProviders, TEnumProviderType, TRealProvider> _providerSwitcher;
 
     public SimpleProviders(
         IServiceProvider serviceProvider,
-        IEnumerable<TRealProvider> allProviders)
+        IEnumerable<TRealProvider> allProviders,
+        IProviderSwitcher<THasProviders, TEnumProviderType, TRealProvider> providerSwitcher)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _allProviders = allProviders ?? throw new ArgumentNullException(nameof(allProviders));
+        _providerSwitcher = providerSwitcher ?? throw new ArgumentNullException(nameof(providerSwitcher));
     }
 
     internal IReadOnlyDictionary<string, string> ProviderTypes
@@ -54,12 +58,7 @@ internal class SimpleProviders<TEnumProviderType, TRealProvider> : IProviders<TE
     {
         get
         {
-            var provider = GetFilteredProviders().FirstOrDefault();
-            
-            if (provider == null)
-                throw new InvalidOperationException($"No providers configured for {typeof(TRealProvider).Name}");
-
-            return provider;
+            return Of(_providerSwitcher.Current);
         }
     }
 

@@ -39,17 +39,40 @@ services2.AddScoped<IMessageSender, MessageSender>();
 
 var serviceProvider2 = services2.BuildServiceProvider();
 
+var switcher = serviceProvider2.GetRequiredService<IProviderSwitcher<MessageSender, MessageType, IMessageProvider>>();
+
+Console.WriteLine("\n=== Interactive Demo: Press 1 for Email, 2 for SMS, any other key to exit ===\n");
+
 while (true)
 {
     using (var scope = serviceProvider2.CreateScope())
     {
         var messageSender = scope.ServiceProvider.GetRequiredService<IMessageSender>();
         
+        Console.WriteLine($"\nCurrent default provider: {switcher.Current}");
+        
         await messageSender.SendEmailAsync("Hello from Email Provider!");
         await messageSender.SendSmsAsync("Hello from SMS Provider!");
         await messageSender.SendUsingDefaultAsync("Hello from Default Provider!");
     }
-    await Task.Delay(5000);
+    
+    Console.WriteLine("\nPress 1 for Email, 2 for SMS, any other key to exit:");
+    var key = Console.ReadKey(true);
+    
+    if (key.KeyChar == '1')
+    {
+        switcher.Current = MessageType.Email;
+        Console.WriteLine("Switched to Email provider");
+    }
+    else if (key.KeyChar == '2')
+    {
+        switcher.Current = MessageType.Sms;
+        Console.WriteLine("Switched to SMS provider");
+    }
+    else
+    {
+        break;
+    }
 }
 
 Console.WriteLine("\nAll examples completed successfully!");

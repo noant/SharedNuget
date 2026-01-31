@@ -145,6 +145,7 @@ public class MessageSender : IMessageSender, IHasProviders<MessageType, IMessage
 {
   "providersConfiguration": {
     "MessageSender": {
+      "defaultProvider": "Email",
       "activeProviders": {
         "Email": "EmailProvider",
         "Sms": "SmsProvider"
@@ -221,6 +222,7 @@ The library supports runtime configuration changes without application restart:
 1. Start the application with initial configuration
 2. While running, edit `appsettings.json`:
    ```json
+   "defaultProvider": "Sms",
    "activeProviders": {
      "Email": "EmailProvider",
      "Sms": "SecondarySmsProvider"  // Changed from SmsProvider
@@ -233,6 +235,71 @@ The library supports runtime configuration changes without application restart:
 - `reloadOnChange: true` in ConfigurationBuilder
 - `IOptionsMonitor<T>` tracks configuration changes
 - Providers are resolved fresh on each request
+
+## Default Provider and Runtime Switching
+
+### Default Provider Configuration
+
+The `defaultProvider` field specifies which provider is used by `_providers.Provider`:
+
+```json
+{
+  "providersConfiguration": {
+    "MessageSender": {
+      "defaultProvider": "Email",
+      "activeProviders": {
+        "Email": "EmailProvider",
+        "Sms": "SmsProvider"
+      }
+    }
+  }
+}
+```
+
+If `defaultProvider` is not specified, the first active provider is used.
+
+### Runtime Provider Switching
+
+Use `IProviderSwitcher` to change the default provider at runtime:
+
+```csharp
+public class MessageSender : IMessageSender, IHasProviders<MessageType, IMessageProvider>
+{
+    private readonly IProviders<MessageType, IMessageProvider> _providers;
+    private readonly IProviderSwitcher<IProviders<MessageType, IMessageProvider>, MessageType, IMessageProvider> _switcher;
+
+    public MessageSender(
+        IProviders<MessageType, IMessageProvider> providers,
+        IProviderSwitcher<IProviders<MessageType, IMessageProvider>, MessageType, IMessageProvider> switcher)
+    {
+        _providers = providers;
+        _switcher = switcher;
+    }
+
+    public void SwitchToSms()
+    {
+        _switcher.Current = MessageType.Sms;
+    }
+
+    public void SwitchToEmail()
+    {
+        _switcher.Current = MessageType.Email;
+    }
+
+    public async Task SendUsingDefaultAsync(string message)
+    {
+        // Uses provider specified by _switcher.Current
+        var defaultProvider = _providers.Provider;
+        await defaultProvider.SendAsync(message);
+    }
+}
+```
+
+**Key Points:**
+- `IProviderSwitcher.Current` is thread-safe
+- Changes affect all subsequent calls to `_providers.Provider`
+- Initial value comes from `defaultProvider` configuration or first active provider
+- Switching does not require configuration changes or application restart
 
 ## Key Features
 
