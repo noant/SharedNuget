@@ -64,6 +64,14 @@ public static class ServiceCollectionExtensions
             services.Add(new ServiceDescriptor(typeof(TInterface), typeof(TImplementation), lifetime));
         }
 
+        foreach (var hasProvidersInterface in hasProvidersInterfaces)
+        {
+            services.Add(new ServiceDescriptor(
+                hasProvidersInterface,
+                sp => sp.GetRequiredService(typeof(TInterface)),
+                lifetime));
+        }
+
         return services;
     }
 
@@ -111,6 +119,14 @@ public static class ServiceCollectionExtensions
         services.Add(new ServiceDescriptor(
             providerSwitcherInterfaceType,
             providerSwitcherImplementationType,
+            ServiceLifetime.Singleton));
+
+        var hasProvidersInterfaceType = typeof(IHasProviders<,>).MakeGenericType(enumProviderType, realProviderType);
+        var providerSwitcherGenericInterfaceType = typeof(IProviderSwitcher<,,>).MakeGenericType(hasProvidersInterfaceType, enumProviderType, realProviderType);
+        
+        services.Add(new ServiceDescriptor(
+            providerSwitcherGenericInterfaceType,
+            sp => sp.GetRequiredService(providerSwitcherInterfaceType),
             ServiceLifetime.Singleton));
 
         services.Add(new ServiceDescriptor(

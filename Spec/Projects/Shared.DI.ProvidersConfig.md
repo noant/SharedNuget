@@ -27,7 +27,7 @@ Library for configuration-driven provider selection with DI integration.
 - `SimpleProvidersOptions<TEnumProviderType, TRealProvider>` - configuration options with defaultProvider support
 
 ### Extensions
-- `ServiceCollectionExtensions.AddProvidersConfiguration<THasProviders>()` - DI registration
+- `ServiceCollectionExtensions.AddProvidersConfiguration<THasProviders>()` - DI registration with generic interface support
 
 ## Configuration Schema
 ```json
@@ -69,6 +69,7 @@ Library for configuration-driven provider selection with DI integration.
 - Thread-safe provider switching with persistent state across DI lifetimes
 - Dynamic configuration reload support
 - Recommended Singleton lifetime for optimal caching performance
+- Generic interface resolution support for `IHasProviders<,>` and `IProviderSwitcher<IHasProviders<,>,,>`
 
 ## Usage Examples
 
@@ -88,6 +89,10 @@ var defaultProvider = providers.Provider;
 // Runtime switching
 var switcher = serviceProvider.GetRequiredService<IProviderSwitcher<MessageSender, MessageType, IMessageProvider>>();
 switcher.Current = MessageType.Sms; // Changes default provider
+
+// Generic interface resolution
+var messageSender = serviceProvider.GetRequiredService<IHasProviders<MessageType, IMessageProvider>>();
+var genericSwitcher = serviceProvider.GetRequiredService<IProviderSwitcher<IHasProviders<MessageType, IMessageProvider>, MessageType, IMessageProvider>>();
 ```
 
 ### Example 2: Multiple Instances of Same Provider
@@ -115,3 +120,5 @@ var reasonerProvider = providers.Of(LlmType.Reasoner); // OpenAiLlmProvider with
 - Configuration reload requires `reloadOnChange: true` in ConfigurationBuilder
 - Assembly type scanning is cached based on `cacheLifetime` and `reloadAssemblyInfo` settings
 - Singleton lifetime (default) is recommended for `AddProvidersConfiguration` for optimal caching performance
+- THasProviders classes are registered as both concrete type and `IHasProviders<TEnumProviderType, TRealProvider>`
+- IProviderSwitcher is registered as both `IProviderSwitcher<THasProviders, ...>` and `IProviderSwitcher<IHasProviders<...>, ...>`
