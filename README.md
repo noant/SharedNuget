@@ -164,6 +164,173 @@ public class SecondarySmsProvider : IMessageProvider, IProvider<IMessageProvider
 - Use Scoped or Transient lifetime for services that need fresh provider resolution
 - See `Shared.DI.ProvidersConfig.Example/EXAMPLES.md` for detailed examples
 
+### Shared.DI.ProvidersConfig.Lite
+
+Simplified provider configuration library with string-based keys and DI integration.
+
+**Installation:**
+```bash
+dotnet add package Shared.DI.ProvidersConfig.Lite
+```
+
+**Key Features:**
+- String-based provider keys (no enum required)
+- Runtime provider switching via `IProviderSwitcher`
+- Default provider support via `_providers.Provider`
+- Automatic provider discovery via reflection
+- Providers registered in DI container
+- Dynamic configuration reload for provider options
+- Simplified flat configuration structure
+- Lightweight with minimal dependencies
+
+**Usage Example:**
+
+```csharp
+// Define provider interface
+public interface IMessageProvider
+{
+    Task SendAsync(string message);
+}
+
+// Define holder class
+public class MessageSender : IMessageSender, IHasProviders<IMessageProvider>
+{
+    private readonly IProviders<MessageSender, IMessageProvider> _providers;
+    private readonly IProviderSwitcher<MessageSender, IMessageProvider> _switcher;
+
+    public MessageSender(
+        IProviders<MessageSender, IMessageProvider> providers,
+        IProviderSwitcher<MessageSender, IMessageProvider> switcher)
+    {
+        _providers = providers;
+        _switcher = switcher;
+    }
+
+    public async Task SendEmailAsync(string message)
+    {
+        var emailProvider = _providers.Of("email");
+        await emailProvider.SendAsync(message);
+    }
+
+    public async Task SendUsingDefaultAsync(string message)
+    {
+        var defaultProvider = _providers.Provider;
+        await defaultProvider.SendAsync(message);
+    }
+
+    public void SwitchToEmail()
+    {
+        _switcher.CurrentKey = "email";
+    }
+
+    public void SwitchToSms()
+    {
+        _switcher.CurrentKey = "sms";
+    }
+}
+
+// Define provider implementation
+public class EmailProviderOptions
+{
+    public string SmtpHost { get; set; } = string.Empty;
+    public int SmtpPort { get; set; }
+}
+
+public class EmailProvider : IMessageProvider, IProvider<IMessageProvider, EmailProviderOptions>
+{
+    private readonly IOptionsSnapshot<EmailProviderOptions> _options;
+
+    public EmailProvider(IOptionsSnapshot<EmailProviderOptions> options)
+    {
+        _options = options;
+    }
+
+    public Task SendAsync(string message)
+    {
+        Console.WriteLine($"Sending via SMTP {_options.Value.SmtpHost}:{_options.Value.SmtpPort}");
+        return Task.CompletedTask;
+    }
+}
+
+// Configuration (appsettings.json)
+{
+  "Providers": {
+    "Default": "email",
+    "email": {
+      "Type": "EmailProvider",
+      "Description": "Email provider using SMTP",
+      "Configuration": {
+        "SmtpHost": "smtp.example.com",
+        "SmtpPort": 587
+      }
+    },
+    "sms": {
+      "Type": "SmsProvider",
+      "Description": "SMS provider using REST API",
+      "Configuration": {
+        "ApiKey": "your-api-key-here",
+        "ApiUrl": "https://api.sms-provider.com"
+      }
+    }
+  }
+}
+
+// DI Registration
+services.AddProvidersConfig<IMessageSender, MessageSender, IMessageProvider>(
+    configuration,
+    ServiceLifetime.Scoped,
+    "Providers");
+
+// Usage
+var messageSender = serviceProvider.GetRequiredService<IMessageSender>();
+await messageSender.SendEmailAsync("Hello!");
+await messageSender.SendUsingDefaultAsync("Using default provider!");
+
+// Runtime provider switching
+messageSender.SwitchToSms();
+await messageSender.SendUsingDefaultAsync("Now using SMS!");
+```
+
+**Capabilities:**
+- ✅ String-keyed provider selection
+- ✅ Runtime provider switching via `IProviderSwitcher`
+- ✅ Default provider support via `_providers.Provider`
+- ✅ Multiple instances of same provider class with different keys and configurations
+- ✅ Automatic provider discovery via reflection
+- ✅ DI container registration for all providers with keyed services
+- ✅ Options pattern integration
+- ✅ Dynamic options reload via `IOptionsSnapshot<T>`
+- ✅ Simple flat configuration structure
+- ✅ Lightweight dependencies
+
+**Limitations:**
+- ❌ No enum-based provider selection
+- ❌ Provider type mappings fixed at startup (cannot change which provider type is mapped to a key)
+- ❌ No assembly type caching or configurable cache lifetime
+
+**When to Use Lite vs Full:**
+
+Use **Lite** when:
+- Simple string-based provider selection is sufficient
+- Lighter dependencies are preferred
+- Runtime provider switching via `IProviderSwitcher` is sufficient
+- Keyed services registration in DI is acceptable
+
+Use **Full** when:
+- Enum-based type-safe provider selection is required
+- Assembly type caching for performance is important
+- More complex provider management scenarios are needed
+- Manual provider construction over DI container resolution is preferred
+
+**Important Notes:**
+- All provider implementations are registered in DI container at startup
+- Provider type mappings (string key → provider type) are fixed at startup
+- Configuration changes affect provider options only, not provider type mappings
+- Runtime provider switching via `IProviderSwitcher` does not require configuration changes
+- Switcher is registered as Singleton, so changes are visible across all scopes
+- Use `IOptionsSnapshot<T>` in providers for dynamic configuration reload support
+- See `Shared.DI.ProvidersConfig.Lite.Example/EXAMPLES.md` for detailed examples
+
 ### Shared.Utils.NugetPublisher
 
 Console application for automated NuGet package publishing with version increment.
