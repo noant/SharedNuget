@@ -1,0 +1,1 @@
+Spec/Processes/0-misc.md - important rules for agent: file structure, error handling, etc.
